@@ -1,0 +1,16 @@
+[project]
+name = "swayipc"
+version = "0.1.0"
+description = "Python bindings for communicating with the Sway window manager over its IPC socket."
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+authors = [{ name = "Evan Fosmark" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Developers",
+  "Topic :: Desktop Environment :: Window Managers",
+  "Typing :: Typed",
+]
