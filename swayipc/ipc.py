@@ -9,7 +9,7 @@ Payload structure
         <magic-string>   = "i3-ipc"
         <payload-length> = 32-bit integer in native byte order
         <payload-type>   = 32-bit integer in native byte order 
-        <payload>        = 
+        <payload>        = The bytes containing the payload
 
 """
 import json
@@ -65,13 +65,15 @@ def get_ipc_socket(socket_location:Optional[str]=None) -> socket.socket:
     s.connect(socket_location)
     return s
 
-def serialize_message(payload_type:PayloadType, payload:str) -> bytes:
+def serialize_message(payload_type:PayloadType, payload:str|bytes) -> bytes:
     """Take a payload type and payload body, and serialize it into a series of bytes in the expected format."""
+    if isinstance(payload, str):
+        payload = payload.encode('utf-8')
     result:list[bytes] = []
     result.append(PAYLOAD_MAGIC_STRING)
     result.append(len(payload).to_bytes(4, byteorder=sys.byteorder))
     result.append(payload_type.value.to_bytes(4, byteorder=sys.byteorder))
-    result.append(payload.encode())
+    result.append(payload)
     return b"".join(result)
 
 def deserialize_message(payload:bytes) -> tuple[PayloadType|EventType, Any, bytes]:
@@ -86,7 +88,7 @@ def deserialize_message(payload:bytes) -> tuple[PayloadType|EventType, Any, byte
     else:
         payload_type = PayloadType(payload_type_id)
     current_payload = payload[8:8+payload_length]
-    return payload_type, json.loads(current_payload.decode("utf-8","ignore")), payload[8+payload_length:]
+    return payload_type, json.loads(current_payload.decode('utf-8')), payload[8+payload_length:]
 
 def send_ipc_message(ptype: PayloadType, payload:Any="") -> Any:
     """Send a message to the Sway IPC consisting of the given payload type and message."""

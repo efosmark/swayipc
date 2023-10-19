@@ -73,8 +73,10 @@ def get_binding_state() -> str:
     return send_ipc_message(PayloadType.GET_BINDING_STATE)
 
 def get_inputs() -> list[Input]:
-    result = [Input.from_dict(op) for op in send_ipc_message(PayloadType.GET_INPUTS)]
-    return result
+    return [
+        Input.from_dict(op)
+        for op in send_ipc_message(PayloadType.GET_INPUTS)
+    ]
 
 def get_seats() -> list[Seat]:
     return [Seat.from_dict(op) for op in send_ipc_message(PayloadType.GET_SEATS)]
