@@ -11,10 +11,10 @@ class _LoadableSwayObject:
 
     @staticmethod
     def _value(field_type, value):
-        if issubclass(field_type, _LoadableSwayObject):
-            return field_type.from_dict(value)
         if value is None or value == "none":
             return None
+        if issubclass(field_type, _LoadableSwayObject):
+            return field_type.from_dict(value)
         return field_type(value)
 
     @classmethod
@@ -125,8 +125,6 @@ class Seat(_LoadableSwayObject):
     focus:int
     devices:List[Input]
 
-
-
 class Hinting(enum.Enum):
     RGB = 'rgb'
     BGR = 'bgr'
@@ -149,18 +147,7 @@ class LayoutType(enum.Enum):
 class Orientation(enum.Enum):
     vertical= 'vertical'
     horizontal = 'horizontal'
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+
 class X11Window(_LoadableSwayObject):
     title:str
     class_:str 
