@@ -22,6 +22,7 @@ from typing import Any, Final, Optional
 PAYLOAD_MAGIC_STRING:Final = b"i3-ipc"
 SWAY_SOCK_ENV_VAR:Final = 'I3SOCK'
 RESPONSE_BUFFER_SIZE:Final = 1024 * 100
+EVT_OFFSET = 0x80000000
 
 class PayloadType(enum.Enum):
     RUN_COMMAND = 0
@@ -39,17 +40,16 @@ class PayloadType(enum.Enum):
     GET_BINDING_STATE = 12
     GET_INPUTS = 100
     GET_SEATS = 101
-
-class EventType(enum.Enum):
-    workspace = 0x80000000
-    mode = 0x80000002
-    window = 0x80000003
-    barconfig_update = 0x80000004
-    binding = 0x80000005
-    shutdown = 0x80000006
-    tick = 0x80000007
-    bar_state_update = 0x80000014
-    input = 0x80000015
+    
+    EVT_WORKSPACE = EVT_OFFSET
+    EVT_MODE = EVT_OFFSET | 2
+    EVT_WINDOW = EVT_OFFSET | 3
+    EVT_BARCONFIG = EVT_OFFSET | 4
+    EVT_BINDING = EVT_OFFSET | 5
+    EVT_SHUTDOWN = EVT_OFFSET | 6
+    EVT_TICK = EVT_OFFSET | 7
+    EVT_BAR_STATE = EVT_OFFSET | 14
+    EVT_INPUT = EVT_OFFSET | 15
 
 def get_socket_location() -> str:
     """Obtain the Sway socket location via the I3SOCK environment variable."""
@@ -76,17 +76,14 @@ def serialize_message(payload_type:PayloadType, payload:str|bytes) -> bytes:
     result.append(payload)
     return b"".join(result)
 
-def deserialize_message(payload:bytes) -> tuple[PayloadType|EventType, Any, bytes]:
+def deserialize_message(payload:bytes) -> tuple[PayloadType, Any, bytes]:
     """Take a message recieved from the IPC socket, and parse it into a `Payload` object."""
     if not payload.startswith(PAYLOAD_MAGIC_STRING):
         raise Exception("Payload contents does not begin with magic string.")
     payload = payload[len(PAYLOAD_MAGIC_STRING):]
     payload_length = int.from_bytes(payload[:4], byteorder=sys.byteorder)
     payload_type_id = int.from_bytes(payload[4:8], byteorder=sys.byteorder)
-    if payload_type_id > 101:
-        payload_type = EventType(payload_type_id)
-    else:
-        payload_type = PayloadType(payload_type_id)
+    payload_type = PayloadType(payload_type_id)
     current_payload = payload[8:8+payload_length]
     return payload_type, json.loads(current_payload.decode('utf-8')), payload[8+payload_length:]
 

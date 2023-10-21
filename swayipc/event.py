@@ -1,16 +1,8 @@
 from typing import Any, Literal, Optional, List, Final, Dict, Self, Protocol
 import enum
-from .ipc import EventType
-from .model import _LoadableSwayObject, Input, Workspace, RootNode, BarConfig
 
-class WorkspaceChangeType(enum.Enum):
-    init = "init"
-    empty = "empty"
-    focus = "focus"
-    move = "move"
-    rename = "rename"
-    urgent = "urgent"
-    reload = "reload"
+from .model import _LoadableSwayObject, Input, Workspace, RootNode, BarConfig
+from .ipc import EVT_OFFSET, PayloadType
 
 class WindowChangeType(enum.Enum):
     new = "new"
@@ -23,8 +15,16 @@ class WindowChangeType(enum.Enum):
     urgent = "urgent"
     mark = "mark"
 
-ALL_EVENT_TYPES = [ EventType.workspace, EventType.mode, EventType.window, EventType.barconfig_update, EventType.binding,
-                    EventType.shutdown, EventType.tick, EventType.bar_state_update, EventType.input ]
+class WorkspaceChangeType(enum.Enum):
+    init = "init"
+    empty = "empty"
+    focus = "focus"
+    move = "move"
+    rename = "rename"
+    urgent = "urgent"
+    reload = "reload"
+
+ALL_EVENTS = [x for x in PayloadType if x.value >= EVT_OFFSET]
 
 class SwayEvent(_LoadableSwayObject):...
 
@@ -70,14 +70,14 @@ class CanBeBuiltFromDict(Protocol):
     @classmethod
     def from_dict(cls, data:Dict[str, Any]) -> Self:...
 
-EVENT_TYPE_TO_EVENT:Final[Dict[EventType, CanBeBuiltFromDict]] = {
-    EventType.bar_state_update: BarStateUpdateEvent,
-    EventType.barconfig_update: BarConfigUpdateEvent,
-    EventType.binding: BindingEvent,
-    EventType.input: InputEvent,
-    EventType.mode: ModeEvent,
-    EventType.tick: TickEvent,
-    EventType.shutdown: ShutdownEvent,
-    EventType.window: WindowEvent,
-    EventType.workspace: WorkspaceEvent
+EVENT_TYPE_TO_EVENT:Final[Dict[PayloadType, CanBeBuiltFromDict]] = {
+    PayloadType.EVT_BAR_STATE: BarStateUpdateEvent,
+    PayloadType.EVT_BARCONFIG: BarConfigUpdateEvent,
+    PayloadType.EVT_BINDING: BindingEvent,
+    PayloadType.EVT_INPUT: InputEvent,
+    PayloadType.EVT_MODE: ModeEvent,
+    PayloadType.EVT_TICK: TickEvent,
+    PayloadType.EVT_SHUTDOWN: ShutdownEvent,
+    PayloadType.EVT_WINDOW: WindowEvent,
+    PayloadType.EVT_WORKSPACE: WorkspaceEvent
 }

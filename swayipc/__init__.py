@@ -1,7 +1,7 @@
 import json
 from typing import Any, Optional, Sequence, overload
 from .event import EVENT_TYPE_TO_EVENT
-from .ipc import send_ipc_message, PayloadType, EventType, get_ipc_socket, serialize_message, deserialize_message, PAYLOAD_MAGIC_STRING, RESPONSE_BUFFER_SIZE
+from .ipc import EVT_OFFSET, send_ipc_message, PayloadType, get_ipc_socket, serialize_message, deserialize_message, PAYLOAD_MAGIC_STRING, RESPONSE_BUFFER_SIZE
 from .model import CommandResult, Gaps, BarConfig, Version, LibInput, Input, Seat, Hinting,\
                    BorderStyle, LayoutType, Orientation, X11Window, Rect, NodeType, Workspace,\
                    OutputMode, OutputTransform, Output, RootNode, WorkspaceNode, ContainerNode, \
@@ -18,7 +18,7 @@ def get_workspaces() -> list[Workspace]:
     result = send_ipc_message(PayloadType.GET_WORKSPACES)
     return [Workspace.from_dict(op) for op in result]
 
-def subscribe(events:Sequence[EventType]):
+def subscribe(events:Sequence[PayloadType]):
     """ Subscribe to the given sequence of events.
     
     This function returns a generator that yields each message recieved from the IPC socket.
@@ -31,7 +31,7 @@ def subscribe(events:Sequence[EventType]):
             while PAYLOAD_MAGIC_STRING in buffer:
                 mtype, message, buffer = deserialize_message(buffer)
                 if mtype == PayloadType.SUBSCRIBE: continue
-                if not isinstance(mtype, EventType):
+                if mtype.value < EVT_OFFSET:
                     raise TypeError(f"The payload type of a subscribe response is not an event. mtype={mtype}")
                 yield EVENT_TYPE_TO_EVENT[mtype].from_dict(message)
 
