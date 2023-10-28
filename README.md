@@ -151,6 +151,9 @@ Get the full view tree. Each tree object can be one of: `RootNode`, `ContainerNo
 
 >**REPLY:** An array of objects that represent the current tree. <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#4._GET_TREE)</sup>
 
+ >[!NOTE]
+ >If you are needing to walk every node in order to perform some action, there's a helper function, `get_nodes()` which returns a list of all nodes available from `get_tree()`.
+
 ## `get_marks()`
 >Retrieve the currently set marks.
 >
@@ -163,7 +166,7 @@ Get the full view tree. Each tree object can be one of: `RootNode`, `ContainerNo
 >Retrieves the list of configured bar IDs.
 >
 >**REPLY:** An array of bar IDs, which are strings
-<sup>[(docs)](<https://man.archlinux.org/man/sway-ipc.en#6._GET_BAR_CONFIG_(WITHOUT_A_PAYLOAD>)]</sup>
+<sup>[(docs)](<https://man.archlinux.org/man/sway-ipc.en#6._GET_BAR_CONFIG_(WITHOUT_A_PAYLOAD>)</sup>
 
 ```python
 >>> import python
@@ -175,6 +178,7 @@ Get the full view tree. Each tree object can be one of: `RootNode`, `ContainerNo
 >When sent with a bar ID as the payload, this retrieves the config associated with the specified by the bar ID in the payload. This is used by swaybar, but could also be used for third party bars.
 >
 >**REPLY:** An object that represents the configuration for the bar with the bar ID sent as the payload. ^[<https://man.archlinux.org/man/sway-ipc.en#6._GET_BAR_CONFIG_(WITH_A_PAYLOAD>)]
+
 ```python
 >>> import python
 >>> swayipc.get_bar_config('bar-0')
@@ -204,6 +208,7 @@ BarConfig(
 
 ## `get_version()`
 >Retrieve version information about the sway process <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#7._GET_VERSION)</sup>
+
 ```python
 >>> import swayipc
 >>> swayipc.get_version()
@@ -304,6 +309,7 @@ Input(
     focus=313,
     name='seat0'
   )
+]
 ```
 
 # Low-level functions
@@ -321,7 +327,7 @@ Get a Sway IPC socket as a Python socket.
 Take a payload type and payload body, and serialize it into a series of bytes in the expected format.
 
 **Arguments**
-- `payload_type: PayloadType`
+- `payload_type: MessageType`
 - `payload: str`
 
 ## `deserialize_message`
@@ -334,31 +340,115 @@ Take a message recieved from the IPC socket, and parse it into a `Payload` objec
 Send a message to the Sway IPC consisting of the given `payload_type` and `message`.
 
 **Arguments**
-- `ptype: PayloadType` - The `PayloadType` being sent
+- `ptype: MessageType` - The `MessageType` being sent
 - `payload` - The serialized payload data being sent
 
-## The `PayloadType` enum
+## The `MessageType` enum
 
 The following enum is present inside of `swayipc.ipc`.
 
 ```python
-class PayloadType(enum.Enum):
-  RUN_COMMAND = 0
-  GET_WORKSPACES = 1
-  SUBSCRIBE = 2
-  GET_OUTPUTS = 3
-  GET_TREE = 4
-  GET_MARKS = 5
-  GET_BAR_CONFIG = 6
-  GET_VERSION = 7
-  GET_BINDING_MODES = 8
-  GET_CONFIG = 9
-  SEND_TICK = 10
-  SYNC = 11
-  GET_BINDING_STATE = 12
-  GET_INPUTS = 100
-  GET_SEATS = 101
+class MessageType(enum.Enum):
+    RUN_COMMAND = 0
+    GET_WORKSPACES = 1
+    SUBSCRIBE = 2
+    GET_OUTPUTS = 3
+    GET_TREE = 4
+    GET_MARKS = 5
+    GET_BAR_CONFIG = 6
+    GET_VERSION = 7
+    GET_BINDING_MODES = 8
+    GET_CONFIG = 9
+    SEND_TICK = 10
+    SYNC = 11
+    GET_BINDING_STATE = 12
+    GET_INPUTS = 100
+    GET_SEATS = 101
+    EVT_WORKSPACE = 0x80000000
+    EVT_MODE = 0x80000002
+    EVT_WINDOW = 0x80000003
+    EVT_BARCONFIG = 0x80000004
+    EVT_BINDING = 0x80000005
+    EVT_SHUTDOWN = 0x80000006
+    EVT_TICK = 0x80000007
+    EVT_BAR_STATE = 0x80000014
+    EVT_INPUT = 0x80000015
 ```
+
+
+# Event dispatcher
+
+The event dispatcher can help when writing scripts to respond to specific events.
+In this example, we'll remove the title-bar when there's only one container is within a workspace.
+
+```python
+from swayipc import *
+
+def show_titlebar_smart(event):
+    """ Hide the application title bar when there's only one visible app in the workspace."""
+    for n in get_nodes():
+        if n.type != NodeType.WORKSPACE or n.name == "__i3_scratch":
+            continue
+        border = "none" if len(n.nodes) == 1 else "normal"        
+        run_command(f'{where(workspace=n.name)} border {border}')
+
+if __name__ == "__main__":
+    handler = event.Dispatcher()
+    handler.on_window_close(show_titlebar_smart)
+    handler.on_window_new(show_titlebar_smart)
+    handler.start() # Blocking call that subscribes to IPC events and dispatches them as they arrive
+                    # If you already have an event loop, you can manually call `handler.dispatch()` instead
+```
+
+Alternatively, it can be configured with function decorators.
+
+```python
+from swayipc import *
+
+handler = event.Dispatcher()
+
+@handler.on_window_close
+@handler.on_window_new
+def show_titlebar_smart(event):
+    """ Hide the application title bar when there's only one visible app in the workspace."""
+    for n in get_nodes():
+        if n.type != NodeType.WORKSPACE or n.name == "__i3_scratch":
+            continue
+        border = "none" if len(n.nodes) == 1 else "normal"        
+        run_command(f'{where(workspace=n.name)} border {border}')
+
+if __name__ == "__main__":
+    handler.start()
+```
+
+These are the following event hooks available:
+
+- `on_bar_state_changed`
+- `on_bar_config_changed`
+- `on_binding_changed`
+- `on_input_changed`
+- `on_mode_changed`
+- `on_tick`
+- `on_shutdown`
+- `on_window_changed`
+- `on_workspace_changed`
+- `on_window_new`
+- `on_window_close`
+- `on_window_focus`
+- `on_window_title`
+- `on_window_fullscreen`
+- `on_window_move`
+- `on_window_floating`
+- `on_window_urgent`
+- `on_window_mark`
+- `on_workspace_init`
+- `on_workspace_empty`
+- `on_workspace_focus`
+- `on_workspace_move`
+- `on_workspace_rename`
+- `on_workspace_urgent`
+- `on_workspace_reload`
+
 
 # License
 
