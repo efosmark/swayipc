@@ -1,10 +1,11 @@
 # `swayipc` - Interact with Sway
+
 A fully-typed package for interacting with the [Sway](https://swaywm.org/) window manager via its IPC connection. Run `man 7 sway` for more information on its IPC protocol. <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en)</sup>
 
 ## Goals
 
 - [x] Low-level interface for interacting with the IPC socket (See section [Low-level](#Low-level))
-- [x] A model of the Sway IPC objects and their main commands (See section [Commands](#Commands))
+- [x] A model of the Sway IPC objects and their main commands (See section [Commands](#commands))
 - [ ] Maintain a fully-typed high-level data model
 - [ ] Example-driven documentation as a Sphinx project
 - [ ] A data model allowing actions such as `Workspace(name="dev").focus()`
@@ -14,13 +15,15 @@ A fully-typed package for interacting with the [Sway](https://swaywm.org/) windo
  >This package was started as a precursor to a different project that I'm working on, and originally spawned as a way for me to learn more about the IPC. As such, it's very likely to experience significant changes until its first stable release.
 
 ## Install
+
 ```shell
 pip install swayipc
 ```
 
-# Commands
+## Commands
 
-## `run_command(...)`
+### `run_command(...)`
+
 Runs a sway command, or a series of sway commands. Each command, separated by a comma, will have its own `CommandResult`.
 
 >**REPLY:** An array of objects corresponding to each command that was parsed. Each object has the property `success`, which is a boolean indicating whether the command was successful. The object may also contain the properties `error` and `parse_error`. The `error` property is a human readable error message while `parse_error` is a boolean indicating whether the reason the command failed was because the command was unknown or not able to be parsed.
@@ -41,7 +44,8 @@ Runs a sway command, or a series of sway commands. Each command, separated by a 
 ]
 ```
 
-## `get_workspaces()`
+### `get_workspaces()`
+
 >Retrieves the list of workspaces.
 >
 >**REPLY:** The reply is an array of objects corresponding to each workspace.
@@ -80,13 +84,15 @@ Workspace(
 )
 ```
 
-## `subscribe(events)`
+### `subscribe(events)`
+
 >Subscribe this IPC connection to the event types specified in the message payload. The payload should be a valid JSON array of events.
 <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#2._SUBSCRIBE)</sup>
 
 This function returns a generator that yields each event recieved from the IPC socket.
 
-## `get_outputs()`
+### `get_outputs()`
+
 >Retrieve the list of outputs.
 >
 >**REPLY:** An array of objects corresponding to each output.
@@ -146,7 +152,8 @@ This function returns a generator that yields each event recieved from the IPC s
 ]
 ```
 
-## `get_tree()`
+### `get_tree()`
+
 Get the full view tree. Each tree object can be one of: `RootNode`, `ContainerNode`, `OutputNode`, or `ViewNode`.
 
 >**REPLY:** An array of objects that represent the current tree. <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#4._GET_TREE)</sup>
@@ -154,19 +161,21 @@ Get the full view tree. Each tree object can be one of: `RootNode`, `ContainerNo
  >[!NOTE]
  >If you are needing to walk every node in order to perform some action, there's a helper function, `get_nodes()` which returns a list of all nodes available from `get_tree()`.
 
-## `get_marks()`
+### `get_marks()`
+
 >Retrieve the currently set marks.
 >
 >**REPLY:** An array of marks current set. Since each mark can only be set for one container, this is a set so each value is unique and the order is undefined.
 <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#5._GET_MARKS)</sup>
 
-## `get_bar_config(bar_id?)`
+### `get_bar_config(bar_id?)`
 
-### Without a `bar_id` specified
+#### Without a `bar_id` specified
+
 >Retrieves the list of configured bar IDs.
 >
 >**REPLY:** An array of bar IDs, which are strings
-<sup>[(docs)](<https://man.archlinux.org/man/sway-ipc.en#6._GET_BAR_CONFIG_(WITHOUT_A_PAYLOAD>)</sup>
+<sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#6._GET_BAR_CONFIG_(WITHOUT_A_PAYLOAD))</sup>
 
 ```python
 >>> import python
@@ -174,10 +183,11 @@ Get the full view tree. Each tree object can be one of: `RootNode`, `ContainerNo
 ['bar-0', 'bar-primary']
 ```
 
-### With a `bar_id` specified
+#### With a `bar_id` specified
+
 >When sent with a bar ID as the payload, this retrieves the config associated with the specified by the bar ID in the payload. This is used by swaybar, but could also be used for third party bars.
 >
->**REPLY:** An object that represents the configuration for the bar with the bar ID sent as the payload. ^[<https://man.archlinux.org/man/sway-ipc.en#6._GET_BAR_CONFIG_(WITH_A_PAYLOAD>)]
+>**REPLY:** An object that represents the configuration for the bar with the bar ID sent as the payload.<sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#6._GET_BAR_CONFIG_(WITH_A_PAYLOAD))</sup>
 
 ```python
 >>> import python
@@ -206,7 +216,8 @@ BarConfig(
 )
 ```
 
-## `get_version()`
+### `get_version()`
+
 >Retrieve version information about the sway process <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#7._GET_VERSION)</sup>
 
 ```python
@@ -222,10 +233,11 @@ BarConfig(
 }
 ```
 
-## `get_binding_modes()`
+### `get_binding_modes()`
+
 >Retrieve the list of binding modes that currently configured.
 >
->**REPLY**  
+>**REPLY:**  
 >An array of strings, with each string being the name of a binding mode. This will always contain at least one mode (currently `"default"`), which is the default binding mode. <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#8._GET_BINDING_MODES)</sup>
 
 ```python
@@ -234,7 +246,8 @@ BarConfig(
 [ 'default', 'resize', 'screenshot', 'dd-term' ]
 ```
 
-## `get_config()`
+### `get_config()`
+
 >Retrieve the contents of the config that was last loaded.[](https://man.archlinux.org/man/sway-ipc.7.en#9._GET_CONFIG)
 
 ```python
@@ -242,7 +255,9 @@ BarConfig(
 >>> swayipc.get_config()
 '# The entire config contents that was last loaded'
 ```
-## `send_tick(payload="")`
+
+### `send_tick(payload="")`
+
 >Issues a _TICK_ event to all clients subscribing to the event to ensure that all events prior to the tick were received. If a `payload` is given, it will be included in the _TICK_ event. <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#10._SEND_TICK)</sup>
 
 ```python
@@ -251,7 +266,8 @@ BarConfig(
 True
 ```
 
-## `get_binding_state()`
+### `get_binding_state()`
+>
 >Returns the currently active binding mode. <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#12._GET_BINDING_STATE)</sup>
 
 ```python
@@ -260,10 +276,11 @@ True
 'default'
 ```
 
-## `get_inputs()`
+### `get_inputs()`
+>
 >Retrieve a list of the input devices currently available
 >
->**REPLY** An array of objects corresponding to each input device. <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#100._GET_INPUTS)</sup>
+>**REPLY:** An array of objects corresponding to each input device. <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#100._GET_INPUTS)</sup>
 
 ```python
 >>> import swayipc
@@ -284,14 +301,15 @@ Input(
 )
 ```
 
->[!NOTE]
->The sway-ipc documentation states the following:
+**Note:**
+The sway-ipc documentation states the following:
 >>The `libinput` object describes the device configuration for libinput devices. Only properties that are supported for the device will be added to the object. In addition to the possible options listed, all string properties may also be _unknown_, in the case that a new option is added to libinput.
 
-## `get_seats()`
+### `get_seats()`
+
 >Retrieve a list of the seats currently configured
 >
->**REPLY** An array of objects corresponding to each seat.
+>**REPLY:** An array of objects corresponding to each seat.
 <sup>[(docs)](https://man.archlinux.org/man/sway-ipc.en#101._GET_SEATS)</sup>
 
 ```python
@@ -312,38 +330,47 @@ Input(
 ]
 ```
 
-# Low-level functions
+## Low-level functions
+
 The following functions are the low-level interface with the IPC socket.
 These are found in the `swayipc.ipc` module.
 
-## `get_socket_location`
+### `get_socket_location`
+
 Obtain the Sway socket location via the `I3SOCK` environment variable.
 This is usually unnecessary to call, as calling `get_ipc_socket()` without any arguments will give you the socket at the default location.
 
-## `get_ipc_socket`
+### `get_ipc_socket`
+
 Get a Sway IPC socket as a Python socket.
 
-## `serialize_message`
+### `serialize_message`
+
 Take a payload type and payload body, and serialize it into a series of bytes in the expected format.
 
-**Arguments**
+**Arguments:**
+
 - `payload_type: MessageType`
 - `payload: str`
 
-## `deserialize_message`
+### `deserialize_message`
+
 Take a message recieved from the IPC socket, and parse it into a `Payload` object. This returns a tuple consisting of the message type, the message object (typically a `dict` or `list`), and any remainder from the message buffer. The remainder is only needed when using a pattern like `subscribe()` where multiple messages my be recieved and the buffer needs to be maintained.
 
-**Arguments**
+**Arguments:**
+
 - `payload: bytes` - The raw bytes from the IPC socket.
 
-## `send_ipc_message`
+### `send_ipc_message`
+
 Send a message to the Sway IPC consisting of the given `payload_type` and `message`.
 
-**Arguments**
+**Arguments:**
+
 - `ptype: MessageType` - The `MessageType` being sent
 - `payload` - The serialized payload data being sent
 
-## The `MessageType` enum
+### The `MessageType` enum
 
 The following enum is present inside of `swayipc.ipc`.
 
@@ -375,8 +402,7 @@ class MessageType(enum.Enum):
     EVT_INPUT = 0x80000015
 ```
 
-
-# Event dispatcher
+## Event dispatcher
 
 The event dispatcher can help when writing scripts to respond to specific events.
 In this example, we'll remove the title-bar when there's only one container is within a workspace.
@@ -449,7 +475,6 @@ These are the following event hooks available:
 - `on_workspace_urgent`
 - `on_workspace_reload`
 
-
-# License
+## License
 
 MIT license. See [LICENSE](LICENSE).

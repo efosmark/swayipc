@@ -25,6 +25,7 @@ CRITERIA_FIELDS:Final = dict(
 )
     
 def where(
+    *,
     floating=False,
     tiling=False,
     app_id:Optional[str]=None,
