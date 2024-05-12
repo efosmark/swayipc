@@ -12,17 +12,17 @@ Payload structure
         <payload>        = The bytes containing the payload
 
 """
-from functools import cache
+from abc import ABCMeta
 import json
 import socket
 import sys
 import os
 import enum
-from typing import Any, Final, Optional, Set, overload
+from typing import Any, Final, Optional, Self, Set, cast, overload
 
-from swayipc.criteria import where
-from .loadable import FromDict
+from .loadable import Loadable
 
+SCRATCHPAD_OUTPUT_NAME = "__i3_scratch"
 PAYLOAD_MAGIC_STRING:Final = b"i3-ipc"
 SWAY_SOCK_ENV_VAR:Final = 'I3SOCK'
 RESPONSE_BUFFER_SIZE:Final = 1024 * 100
@@ -53,15 +53,13 @@ class MessageType(enum.Enum):
     EVT_TICK = EVT_OFFSET | 7
     EVT_BAR_STATE = EVT_OFFSET | 14
     EVT_INPUT = EVT_OFFSET | 15
-    
+     
     def is_event(self) -> bool:
         return self.value >= EVT_OFFSET
-    
     
     @classmethod
     def all_events(cls) -> list['MessageType']:
         return [x for x in cls if x.is_event()]
-    
     
     def subfield(self:'MessageType') -> str|None:
         return {
@@ -129,13 +127,12 @@ def send_ipc_message(ptype: MessageType, payload:Any="") -> Any:
             raise Exception(f"There should not be any buffer remainder from standard IPC responses. r={repr(remaining)}")
         return message
 
-
 ## ---------------------
 ## Core Sway objects
 ## ---------------------
 
-
-class SwayObject(FromDict):...
+class SwayObject(Loadable):
+    ...
 
 class CommandResult(SwayObject):
     success:bool
@@ -250,6 +247,7 @@ class BorderStyle(enum.Enum):
     CSD = "csd"
 
 class LayoutType(enum.Enum):
+    NONE = 'none'
     SPLITH = "splith"
     SPLITV = "splitv"
     STACKED = "stacked"
@@ -257,60 +255,68 @@ class LayoutType(enum.Enum):
     OUTPUT = "output"
 
 class Orientation(enum.Enum):
+    NONE = 'none'
     VERTICAL= 'vertical'
     HORIZONTAL = 'horizontal'
+
+class InputType(enum.Enum):
+    TOUCHPAD = 'touchpad'
+    POINTER = 'pointer'
+    KEYBOARD = 'keyboard'
+    TOUCH = 'touch'
+    TABLET_TOOL = 'tablet_tool'
+    TABLET_PAD = 'tablet_pad'
+    SWITCH = 'switch'
 
 class NodeType(enum.Enum):
     ROOT = "root"
     OUTPUT = "output"
     WORKSPACE = "workspace"
     CON = "con"
-    FLOATING_ON = "floating_con"
+    FLOATING_CON = "floating_con"
 
-class Node(FromDict):
+class Node(SwayObject, metaclass=ABCMeta):
     id:int
-    name:Optional[str]
-    type:Optional[NodeType]
-    border:Optional[Optional[BorderStyle]]
-    current_border_width:Optional[int]
-    layout:Optional[LayoutType]
-    orientation:Optional[Optional[Orientation]]
-    percent:Optional[Optional[float]]
-    rect:Optional[Rect]
-    window_rect:Optional[Rect]
-    deco_rect:Optional[Rect]
-    geometry:Optional[Rect]
-    urgent:Optional[bool]
-    sticky:Optional[bool]
-    marks:Optional[list[str]]
-    focused:Optional[bool]
-    focus:Optional[list[int]]
-    nodes:list['Node']
-    floating_nodes:list['Node']
-
-class Workspace(Node):
-    id:int
-    name:str
-    rect:Rect
-    visible:bool
-    focused:bool
+    type:NodeType
+    orientation:Orientation
+    percent:float
     urgent:bool
-    num:int
-    output:str
-    
-    def focus(self):
-        run_command(f'{where(con_id=self.id)} focus')
-    
-    def set_urgent(self, value):
-        run_command(f'{where(con_id=self.id)} urgent {value}')
-    
-    @property
-    def is_scratchpad(self) -> bool:
-        return self.name == "__i3_scratch"
-
-class Output(FromDict):
-    name:str
+    marks:list[str]
+    focused:bool
+    layout:LayoutType
+    border:BorderStyle
+    current_border_width:int
     rect:Rect
+    window_rect:Rect
+    deco_rect:Rect
+    geometry:Rect
+    name:str
+    focus:list[int]
+    fullscreen_mode:int
+    sticky:bool
+    nodes:list
+    floating_nodes:list
+    
+    def __new__(cls, data:dict) -> Self:
+        if cls is Node:
+            node_type = data.get('type')
+            if node_type == NodeType.CON.value or node_type == NodeType.FLOATING_CON.value:
+                cls = ContainerNode
+            elif node_type == NodeType.OUTPUT.value:
+                cls = Output
+            elif node_type == NodeType.WORKSPACE.value:
+                cls = Workspace
+            elif node_type == NodeType.ROOT.value:
+                cls = RootNode
+            else:
+                raise Exception(f"Unknown NodeType: {node_type}")
+        return cast(Self, Loadable.__new__(cls, data))
+
+class RootNode(Node):
+    nodes:list['Output']
+    floating_nodes:list['Output']
+
+class Output(Node):
     make:str
     model:str
     serial:str
@@ -324,6 +330,20 @@ class Output(FromDict):
     current_workspace:Optional[str]
     modes:list[OutputMode]
     current_mode:OutputMode
+    nodes:list['Workspace']
+    floating_nodes:list['Workspace']
+
+class Workspace(Node):
+    name:str
+    rect:Rect
+    visible:bool
+    focused:bool
+    urgent:bool
+    num:int
+    output:str
+    representation:str
+    nodes:list['ContainerNode']
+    floating_nodes:list['ContainerNode']
 
 class ContainerNode(Node):
     fullscreen_mode:int
@@ -346,37 +366,37 @@ def run_command(command:str) -> list[CommandResult]:
         MessageType.RUN_COMMAND, 
         command
     )
-    return [CommandResult.from_dict(r) for r in result]
+    return [CommandResult(r) for r in result]
 
 def command_succeeds(command:str) -> bool:
-    """Helper function that simply returns whether the command succeeded."""
+    """Helper function that returns whether the command succeeded."""
     return False not in [res.success for res in run_command(command)]
 
 def get_workspaces() -> list[Workspace]:
     """Get a list of all workspaces."""
     result = send_ipc_message(MessageType.GET_WORKSPACES)
-    return [Workspace.from_dict(op) for op in result]
+    return [Workspace(op) for op in result]
 
 def get_outputs() -> list[Output]:
     """Get a list of all outputs, including the invisible scratchpad output."""
     result = send_ipc_message(MessageType.GET_OUTPUTS)
-    return [Output.from_dict(op) for op in result]
+    return [Output(op) for op in result]
 
-def get_tree() -> Node:
+def get_tree() -> RootNode:
     """Get the full node tree."""
-    return Node.from_dict(send_ipc_message(MessageType.GET_TREE))
+    return RootNode(send_ipc_message(MessageType.GET_TREE))
 
-def get_nodes() -> Set[Node]:
+def get_nodes() -> Set[RootNode|Output|Workspace|ContainerNode]:
     """Get the node tree and flatten it into a set."""
     result = set()
-    nodes = get_tree().nodes
+    nodes:list[RootNode|Output|Workspace|ContainerNode] = [get_tree()]
     if nodes is None:
         return set()
     while len(nodes) > 0:
         n = nodes.pop(0)
         result.add(n)
-        nodes.extend(n.nodes or [])
-        nodes.extend(n.floating_nodes or [])
+        nodes.extend(n.nodes)
+        nodes.extend(n.floating_nodes)
     return result
 
 def get_marks() -> list[str]:
@@ -396,11 +416,11 @@ def get_bar_config(bar_id:Optional[str]=None) -> Any:
     """
     if bar_id is None:
         return send_ipc_message(MessageType.GET_BAR_CONFIG)
-    return BarConfig.from_dict(send_ipc_message(MessageType.GET_BAR_CONFIG, bar_id))
+    return BarConfig(send_ipc_message(MessageType.GET_BAR_CONFIG, bar_id))
 
 def get_version() -> Version:
     """Get version information."""
-    return Version.from_dict(send_ipc_message(MessageType.GET_VERSION))
+    return Version(send_ipc_message(MessageType.GET_VERSION))
 
 def get_binding_modes() -> list[str]:
     """Get the list of available binding modes."""
@@ -424,13 +444,17 @@ def get_binding_state() -> str:
 def get_inputs() -> list[Input]:
     """Get a list of all inputs."""
     return [
-        Input.from_dict(op)
+        Input(op)
         for op in send_ipc_message(MessageType.GET_INPUTS)
     ]
 
 def get_seats() -> list[Seat]:
     """Get a list of all seats."""
     return [
-        Seat.from_dict(op) 
+        Seat(op) 
         for op in send_ipc_message(MessageType.GET_SEATS)
     ]
+
+def kill(criteria_or_node:Node):
+    if isinstance(criteria_or_node, Node):
+        run_command(f'kill ${criteria_or_node.id}')

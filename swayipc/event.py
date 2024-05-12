@@ -1,8 +1,8 @@
 import enum
 import json
 from collections import defaultdict
-from typing import Any, Callable, Literal, Optional, List, Dict, Protocol, Self, Sequence, Tuple, TypeVar, cast
-from .loadable import FromDict
+from typing import Callable, Literal, Optional, List, Dict, Sequence, Tuple, TypeVar, cast
+from .loadable import Loadable
 from .ipc import BarConfig, Input, Workspace, Node, MessageType, get_ipc_socket, serialize_message, deserialize_message, PAYLOAD_MAGIC_STRING, RESPONSE_BUFFER_SIZE
 
 class WindowChangeType(enum.Enum):
@@ -25,7 +25,7 @@ class WorkspaceChangeType(enum.Enum):
     urgent = "urgent"
     reload = "reload"
 
-class SwayEvent(FromDict):
+class SwayEvent(Loadable):
     mtype: MessageType
 
 class WorkspaceEvent(SwayEvent):
@@ -66,14 +66,10 @@ class InputEvent(SwayEvent):
 
 class BarConfigEvent(SwayEvent, BarConfig):...
 
-class CanBeBuiltFromDict(Protocol):
-    @classmethod
-    def from_dict(cls, data:Dict[str, Any]) -> Self:...
-
 Dispatchable = MessageType | Tuple[MessageType, WindowChangeType|WorkspaceChangeType]
 _E = TypeVar("_E", bound=SwayEvent)
 
-EVENT_TYPE_TO_EVENT:Dict[MessageType, CanBeBuiltFromDict] = {
+EVENT_TYPE_TO_EVENT:Dict[MessageType, type[SwayEvent]] = {
     MessageType.EVT_BAR_STATE: BarStateEvent,
     MessageType.EVT_BARCONFIG: BarConfigEvent,
     MessageType.EVT_BINDING: BindingEvent,
@@ -84,8 +80,6 @@ EVENT_TYPE_TO_EVENT:Dict[MessageType, CanBeBuiltFromDict] = {
     MessageType.EVT_WINDOW: WindowEvent,
     MessageType.EVT_WORKSPACE: WorkspaceEvent
 }
-
-
 
 def subscribe(events:Sequence[MessageType]):
     """ Subscribe to the given sequence of events.
@@ -105,11 +99,9 @@ def subscribe(events:Sequence[MessageType]):
                 if mtype == MessageType.SUBSCRIBE: continue
                 if not mtype.is_event():
                     raise TypeError(f"The payload type of a subscribe response is not an event. mtype={mtype}")
-                event = cast(SwayEvent, EVENT_TYPE_TO_EVENT[mtype].from_dict(message))
+                event = cast(SwayEvent, EVENT_TYPE_TO_EVENT[mtype](**message))
                 event.mtype = mtype
                 yield event
-
-
 
 #
 # Event handler callback types
